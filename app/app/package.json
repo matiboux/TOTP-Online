@@ -1,5 +1,6 @@
 {
   "name": "totp-online",
+  "description": "Online TOTP codes generator",
   "author": "Matiboux",
   "license": "MIT",
   "version": "0.0.1",

@@ -25,7 +25,7 @@ export interface Site
 export const site: Site = {
 	lang: 'en',
 	title: 'TOTP Online',
-	description: 'Online generator for TOTP codes.',
+	description: 'Online TOTP codes generator.',
 	version: GITHUB_SHA || VERSION_TAG || 'dev',
 	author: 'Matiboux',
 	themeColor: '#ffffff',

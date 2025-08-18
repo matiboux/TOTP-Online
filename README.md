@@ -1,6 +1,6 @@
 # TOTP Online
 
-Online generator for TOTP (Time-based One-Time Password) codes.
+Online TOTP (Time-based One-Time Password) codes generator.
 
 
 ## Getting started
