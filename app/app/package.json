@@ -40,6 +40,7 @@
     "astro": "^5.13.2",
     "dotenv": "^16.6.1",
     "nanostores": "^1.0.1",
+    "otpauth": "^9.4.1",
     "sass": "^1.90.0",
     "svelte": "^5.38.2",
     "tailwindcss": "^4.1.12",
