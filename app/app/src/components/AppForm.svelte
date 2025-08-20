@@ -16,6 +16,9 @@ export {
 import { i18nFactory } from '~/i18n'
 const _ = i18nFactory(locale as any)
 
+const progressDiscRadius = 20
+const progressDiscCircumference = 2 * Math.PI * progressDiscRadius
+
 const totpAlgorithms = [
 	'SHA1',
 	'SHA224',
@@ -269,6 +272,13 @@ function onReset()
 	totpConfig.period = defaultTotpConfig.period
 	totpConfig.secret = defaultTotpConfig.secret
 	saveConfig()
+
+	// Reset TOTP output
+	errorMessage = null
+	totpCode = ''
+	totpCounter = 0
+	totpRemaining = 0
+
 }
 </script>
 
@@ -384,26 +394,65 @@ function onReset()
 	<hr />
 
 	<div class="results">
-		{#if errorMessage}
+		{#if totpCode}
+			<!-- Circular Progress -->
+			<!-- <div class="progress-and-code">
+				<div class="relative size-20">
+					<svg class="size-full -rotate-90" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg"> -->
+			<div class="progress-and-code">
+				<div class="progress-disc">
+					<svg class="progress-svg" width="48" height="48" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+						<circle
+							class="progress-bg"
+							cx="24" cy="24" r={progressDiscRadius}
+							fill="none"
+							stroke-width="4"
+						/>
+						<circle
+							class="progress-fg"
+							cx="24" cy="24" r={progressDiscRadius}
+							fill="none"
+							stroke-width="4"
+							stroke-dasharray={progressDiscCircumference}
+							stroke-dashoffset={(1 - totpRemaining / 1000 / totpConfig.period) * progressDiscCircumference}
+							stroke-linecap="round"
+							transform="rotate(-90 24 24)"
+						/>
+					</svg>
+					<div class="absolute top-1/2 start-1/2 transform -translate-y-1/2 -translate-x-1/2">
+						<span class="text-center text-xl font-bold text-blue-600 dark:text-blue-500">
+							{(totpRemaining / 1000).toFixed(0)}s
+						</span>
+					</div>
+				</div>
+
+				<div class="content">
+					<div class="code-wrapper">
+						<div class="totp-code">
+							{totpCode}
+						</div>
+						<div class="copy-code">
+							<span class="icon-[mdi--clipboard-text] icon-align" />
+						</div>
+					</div>
+
+					<div class="dev-wrapper">
+						<div>
+							{_('TOTP Counter')}:
+							<code>{totpCounter}</code>
+						</div>
+						<div>
+							{_('TOTP Remaining Time')}:
+							<code>{totpRemaining / 1000}s</code>
+						</div>
+					</div>
+				</div>
+			</div>
+		{:else if errorMessage}
 			<div class="text-red-600 mb-4">
 				{errorMessage}
 			</div>
 		{/if}
-
-		<div class="text-gray-700 mb-4">
-			{_('TOTP Code')}:
-			<span class="font-mono">{totpCode}</span>
-		</div>
-
-		<div class="text-gray-700 mb-4">
-			{_('TOTP Counter')}:
-			<span class="font-mono">{totpCounter}</span>
-		</div>
-
-		<div class="text-gray-700 mb-4">
-			{_('TOTP Remaining Time')}:
-			<span class="font-mono">{totpRemaining / 1000} s</span>
-		</div>
 	</div>
 
 </div>
@@ -465,6 +514,67 @@ hr {
 
 	code {
 		@apply font-mono;
+	}
+
+	/* added: layout for the progress + code */
+	.progress-and-code {
+		@apply flex items-center gap-4;
+
+		.progress-disc {
+			@apply shrink-0;
+			@apply relative size-20;
+			// position: relative;
+			// width: 48px;
+			// height: 48px;
+			// flex: 0 0 48px;
+
+			.progress-svg {
+				@apply block size-full;
+
+				.progress-bg {
+					@apply stroke-current text-gray-200 dark:text-neutral-700;
+					// stroke: var(--tw-prose-pre-bg, #e5e7eb); /* gray-200 */
+				}
+
+				.progress-fg {
+					@apply stroke-current text-blue-600 dark:text-blue-500;
+					// stroke: var(--tw-prose-code, #3b82f6); /* blue-500 */
+					// transition: stroke-dashoffset 200ms linear;
+				}
+			}
+		}
+
+		.content {
+			@apply flex flex-col items-start justify-center gap-1 w-full;
+		}
+
+		.code-wrapper {
+			@apply flex items-center justify-center gap-1;
+			@apply pl-3 pr-1 py-1 rounded-md border border-gray-300 dark:border-neutral-600;
+
+			.totp-code {
+				@apply text-3xl font-bold text-blue-600 dark:text-blue-500 font-mono;
+				// color: var(--tw-prose-code, #3b82f6); /* blue-500 */
+			}
+
+			.copy-code {
+				@apply
+					flex items-center justify-center
+					p-1 pl-2
+					text-xl text-gray-500 hover:text-gray-700
+					cursor-pointer
+					transition-colors duration-200
+					;
+			}
+		}
+
+		.dev-wrapper {
+			@apply hidden flex flex-col items-start justify-center gap-1;
+
+			> * {
+				@apply text-gray-700;
+			}
+		}
 	}
 }
 
