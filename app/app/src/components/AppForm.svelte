@@ -1,5 +1,5 @@
 <script lang="ts">
-import { onMount } from 'svelte'
+import { onMount, onDestroy } from 'svelte'
 import { persistentAtom } from '@nanostores/persistent'
 import * as OTPAuth from 'otpauth'
 
@@ -66,18 +66,26 @@ const totpPersistentConfig = persistentAtom<string>('totpPersistentConfig', unde
 
 let errorMessage: string | null = null
 
+let totp: OTPAuth.TOTP | null = null
 let totpCode: string = ''
 let totpCounter: number = 0
 let totpRemaining: number = 0
+
+// Add interval id for periodic updates
+let totpRefreshId: ReturnType<typeof setTimeout> | undefined = undefined
 
 onMount(() =>
 {
 	totpPersistentConfig.subscribe(onSubcribeTotpPersistentConfig)
 })
 
+onDestroy(() =>
+{
+	clearRefreshTotp()
+})
+
 function onSubcribeTotpPersistentConfig(newValue: string)
 {
-	console.log('onSubcribeTotpPersistentConfig', newValue)
 	let config: TotpPersistentConfig | null = null
 
 	try
@@ -99,37 +107,30 @@ function onSubcribeTotpPersistentConfig(newValue: string)
 
 function onChangeTotpUri()
 {
-	console.log('onChangeTotpUri')
-	// totpUri.set(totpConfig.uri)
 	saveConfig()
 	generate()
 }
 
 function onChangeTotpAlgorithm()
 {
-	console.log('onChangeTotpAlgorithm')
-	// totpAlgorithm.set(totpConfig.algorithm)
 	saveConfig()
 	computeTotpUri()
 }
 
 function onChangeTotpDigits()
 {
-	console.log('onChangeTotpDigits')
 	if (!Number.isFinite(totpConfig.digits) || totpConfig.digits < 1)
 	{
 		// Ensure digits is a positive finite number
 		totpConfig.digits = 1
 	}
 
-	// totpDigits.set(totpConfig.digits)
 	saveConfig()
 	computeTotpUri()
 }
 
 function onChangeTotpPeriod()
 {
-	console.log('onChangeTotpPeriod')
 	if (!Number.isFinite(totpConfig.period) || totpConfig.period < 1)
 	{
 		// Ensure period is a positive finite number
@@ -142,7 +143,6 @@ function onChangeTotpPeriod()
 
 function onChangeTotpSecret()
 {
-	console.log('onChangeTotpSecret')
 	saveConfig()
 	computeTotpUri()
 }
@@ -200,11 +200,11 @@ function generate(updateConfig: boolean = true)
 		return
 	}
 
-	let totp: OTPAuth.HOTP | OTPAuth.TOTP | null = null
+	let totpObject: OTPAuth.HOTP | OTPAuth.TOTP | null = null
 
 	try
 	{
-		totp = OTPAuth.URI.parse(totpConfig.uri)
+		totpObject = OTPAuth.URI.parse(totpConfig.uri)
 	}
 	catch (error)
 	{
@@ -218,7 +218,7 @@ function generate(updateConfig: boolean = true)
 		}
 	}
 
-	if (!totp)
+	if (!totpObject)
 	{
 		errorMessage = _('Failed to create TOTP object')
 		totpCode = ''
@@ -227,7 +227,7 @@ function generate(updateConfig: boolean = true)
 		return
 	}
 
-	if (!(totp instanceof OTPAuth.TOTP))
+	if (!(totpObject instanceof OTPAuth.TOTP))
 	{
 		errorMessage = _('Invalid TOTP object type')
 		totpCode = ''
@@ -235,6 +235,8 @@ function generate(updateConfig: boolean = true)
 		totpRemaining = 0
 		return
 	}
+
+	totp = totpObject
 
 	if (updateConfig)
 	{
@@ -246,10 +248,46 @@ function generate(updateConfig: boolean = true)
 		saveConfig()
 	}
 
+	// Reset TOTP output
 	errorMessage = null
-	totpCode = totp.generate()
-	totpCounter = totp.counter()
-	totpRemaining = totp.remaining()
+	totpCode = ''
+	totpCounter = 0
+	totpRemaining = 0
+
+	// Create the TOTP generation refresh interval
+	clearRefreshTotp()
+	totpRefreshId = setInterval(refreshTotp, 100)
+}
+
+function clearRefreshTotp()
+{
+	// Clear the TOTP generation refresh interval
+	if (totpRefreshId !== undefined)
+	{
+		clearInterval(totpRefreshId)
+		totpRefreshId = undefined
+	}
+}
+
+function refreshTotp()
+{
+	if (!totp)
+	{
+		clearInterval(totpRefreshId)
+		totpRefreshId = undefined
+		return
+	}
+
+	// Update the TOTP remaining time
+	totpRemaining = totp.remaining() // milliseconds
+
+	// Regenerate the TOTP code only if the counter has changed
+	const newCounter = totp.counter()
+	if (newCounter !== totpCounter)
+	{
+		totpCode = totp.generate()
+		totpCounter = newCounter
+	}
 }
 
 function onSubmit()
