@@ -1,0 +1,492 @@
+<script lang="ts">
+import { onMount } from 'svelte'
+import { persistentAtom } from '@nanostores/persistent'
+import * as OTPAuth from 'otpauth'
+
+// Props
+let wrapperClass: string | undefined = undefined
+let wrapperStyle: string | undefined = undefined
+let locale: string | undefined = undefined
+export {
+	wrapperClass as class,
+	wrapperStyle as style,
+	locale,
+}
+
+import { i18nFactory } from '~/i18n'
+const _ = i18nFactory(locale as any)
+
+const totpAlgorithms = [
+	'SHA1',
+	'SHA224',
+	'SHA256',
+	'SHA384',
+	'SHA512',
+	'SHA3-224',
+	'SHA3-256',
+	'SHA3-384',
+	'SHA3-512',
+] as const
+
+type TotpAlgorithm = typeof totpAlgorithms[number]
+
+interface TotpConfig
+{
+	uri: string
+	algorithm: TotpAlgorithm
+	digits: number
+	period: number
+	secret: string
+}
+
+type TotpPersistentConfig = Pick<TotpConfig, 'algorithm' | 'digits' | 'period'>
+
+const defaultTotpConfig: TotpConfig = {
+	uri: '',
+	algorithm: 'SHA1', // HMAC algorithm
+	digits: 6, // Token length in digits
+	period: 30, // Token validity period in seconds
+	secret: '',
+}
+
+const totpConfig: TotpConfig = {
+	uri: defaultTotpConfig.uri,
+	algorithm: defaultTotpConfig.algorithm,
+	digits: defaultTotpConfig.digits,
+	period: defaultTotpConfig.period,
+	secret: defaultTotpConfig.secret,
+}
+
+let lastCalledMethod: 'computeTotpUri' | 'generate' | null = null
+
+const totpPersistentConfig = persistentAtom<string>('totpPersistentConfig', undefined)
+
+let errorMessage: string | null = null
+
+let totpCode: string = ''
+let totpCounter: number = 0
+let totpRemaining: number = 0
+
+onMount(() =>
+{
+	totpPersistentConfig.subscribe(onSubcribeTotpPersistentConfig)
+})
+
+function onSubcribeTotpPersistentConfig(newValue: string)
+{
+	console.log('onSubcribeTotpPersistentConfig', newValue)
+	let config: TotpPersistentConfig | null = null
+
+	try
+	{
+		config = JSON.parse(newValue)
+	}
+	catch
+	{
+		config = null
+	}
+
+	totpConfig.algorithm = config?.algorithm ?? defaultTotpConfig.algorithm
+	totpConfig.digits = config?.digits ?? defaultTotpConfig.digits
+	totpConfig.period = config?.period ?? defaultTotpConfig.period
+
+	// Only read once to restore the TOTP configuration, then unsubscribe
+	totpPersistentConfig.off()
+}
+
+function onChangeTotpUri()
+{
+	console.log('onChangeTotpUri')
+	// totpUri.set(totpConfig.uri)
+	saveConfig()
+	generate()
+}
+
+function onChangeTotpAlgorithm()
+{
+	console.log('onChangeTotpAlgorithm')
+	// totpAlgorithm.set(totpConfig.algorithm)
+	saveConfig()
+	computeTotpUri()
+}
+
+function onChangeTotpDigits()
+{
+	console.log('onChangeTotpDigits')
+	if (!Number.isFinite(totpConfig.digits) || totpConfig.digits < 1)
+	{
+		// Ensure digits is a positive finite number
+		totpConfig.digits = 1
+	}
+
+	// totpDigits.set(totpConfig.digits)
+	saveConfig()
+	computeTotpUri()
+}
+
+function onChangeTotpPeriod()
+{
+	console.log('onChangeTotpPeriod')
+	if (!Number.isFinite(totpConfig.period) || totpConfig.period < 1)
+	{
+		// Ensure period is a positive finite number
+		totpConfig.period = 1
+	}
+
+	saveConfig()
+	computeTotpUri()
+}
+
+function onChangeTotpSecret()
+{
+	console.log('onChangeTotpSecret')
+	saveConfig()
+	computeTotpUri()
+}
+
+function saveConfig()
+{
+	const config: TotpPersistentConfig = {
+		algorithm: totpConfig.algorithm,
+		digits: totpConfig.digits,
+		period: totpConfig.period,
+	}
+
+	totpPersistentConfig.set(JSON.stringify(config))
+}
+
+function computeTotpUri()
+{
+	lastCalledMethod = 'computeTotpUri'
+
+	if (!totpConfig.secret)
+	{
+		errorMessage = _('TOTP secret is required')
+		totpCode = ''
+		totpCounter = 0
+		totpRemaining = 0
+		return
+	}
+
+	const totp = new OTPAuth.TOTP({
+		algorithm: totpConfig.algorithm ?? defaultTotpConfig.algorithm,
+		digits: totpConfig.digits ?? defaultTotpConfig.digits,
+		period: totpConfig.period ?? defaultTotpConfig.period,
+		secret: totpConfig.secret,
+	})
+
+	// Update the TOTP URI
+	// totpUri.set(totp.toString())
+	totpConfig.uri = totp.toString()
+	generate(false)
+}
+
+function generate(updateConfig: boolean = true)
+{
+	if (updateConfig)
+	{
+		lastCalledMethod = 'generate'
+	}
+
+	if (!totpConfig.uri)
+	{
+		errorMessage = _('TOTP URI is required')
+		totpCode = ''
+		totpCounter = 0
+		totpRemaining = 0
+		return
+	}
+
+	let totp: OTPAuth.HOTP | OTPAuth.TOTP | null = null
+
+	try
+	{
+		totp = OTPAuth.URI.parse(totpConfig.uri)
+	}
+	catch (error)
+	{
+		if (error instanceof TypeError)
+		{
+			totp = null
+		}
+		else
+		{
+			throw error
+		}
+	}
+
+	if (!totp)
+	{
+		errorMessage = _('Failed to create TOTP object')
+		totpCode = ''
+		totpCounter = 0
+		totpRemaining = 0
+		return
+	}
+
+	if (!(totp instanceof OTPAuth.TOTP))
+	{
+		errorMessage = _('Invalid TOTP object type')
+		totpCode = ''
+		totpCounter = 0
+		totpRemaining = 0
+		return
+	}
+
+	if (updateConfig)
+	{
+		// Update the TOTP configuration elements
+		totpConfig.algorithm = totp.algorithm as TotpAlgorithm
+		totpConfig.digits = totp.digits
+		totpConfig.period = totp.period
+		totpConfig.secret = totp.secret.base32
+		saveConfig()
+	}
+
+	errorMessage = null
+	totpCode = totp.generate()
+	totpCounter = totp.counter()
+	totpRemaining = totp.remaining()
+}
+
+function onSubmit()
+{
+	if (lastCalledMethod === 'generate')
+	{
+		generate()
+		return
+	}
+
+	computeTotpUri()
+}
+
+function onReset()
+{
+	// Reset TOTP configuration
+	totpConfig.uri = defaultTotpConfig.uri
+	totpConfig.algorithm = defaultTotpConfig.algorithm
+	totpConfig.digits = defaultTotpConfig.digits
+	totpConfig.period = defaultTotpConfig.period
+	totpConfig.secret = defaultTotpConfig.secret
+	saveConfig()
+}
+</script>
+
+<div
+	class={[ wrapperClass ].join(' ')}
+	style={wrapperStyle}
+>
+
+	<form class="form">
+
+		<div class="form-group">
+			<label>
+				<div class="label">
+					{_('TOTP URI')}
+				</div>
+				<input
+					type="text"
+					class="form-input"
+					placeholder="otpauth://totp/..."
+					bind:value={totpConfig.uri}
+					on:input|preventDefault={onChangeTotpUri}
+					on:change|preventDefault={onChangeTotpUri}
+				/>
+			</label>
+		</div>
+
+		<div class="form-cols grid-cols-1 md:grid-cols-3">
+
+			<div class="form-group">
+				<label>
+					<div class="label">
+						{_('TOTP Algorithm')}
+					</div>
+					<select
+						class="form-input"
+						bind:value={totpConfig.algorithm}
+						on:change|preventDefault={onChangeTotpAlgorithm}
+					>
+						{#each totpAlgorithms as algorithm}
+							<option value={algorithm}>{algorithm}</option>
+						{/each}
+					</select>
+				</label>
+			</div>
+
+
+			<div class="form-cols grid-cols-1 sm:grid-cols-2 col-span-2">
+
+				<div class="form-group">
+					<label>
+						<div class="label">
+							{_('TOTP Digits')}
+						</div>
+						<input
+							type="number"
+							min="1"
+							max="20"
+							class="form-input"
+							bind:value={totpConfig.digits}
+							on:input|preventDefault={onChangeTotpDigits}
+							on:change|preventDefault={onChangeTotpDigits}
+						/>
+					</label>
+				</div>
+
+				<div class="form-group">
+					<label>
+						<div class="label">
+							{_('TOTP Period (seconds)')}
+						</div>
+						<input
+							type="number"
+							min="1"
+							max="3600"
+							class="form-input"
+							bind:value={totpConfig.period}
+							on:input|preventDefault={onChangeTotpPeriod}
+							on:change|preventDefault={onChangeTotpPeriod}
+						/>
+					</label>
+				</div>
+
+			</div>
+		</div>
+
+		<div class="form-group">
+			<label>
+				<div class="label">
+					{_('TOTP Secret')}
+				</div>
+				<input
+					type="text"
+					class="form-input"
+					placeholder="Base32 encoded secret"
+					bind:value={totpConfig.secret}
+					on:input|preventDefault={onChangeTotpSecret}
+					on:change|preventDefault={onChangeTotpSecret}
+				/>
+			</label>
+		</div>
+
+		<div class="form-group form-group-inline">
+			<button class="btn btn-primary" on:click|preventDefault={onSubmit}>
+				{_('Convert')}
+			</button>
+			<button class="btn btn-secondary" on:click|preventDefault={onReset}>
+				{_('Reset')}
+			</button>
+		</div>
+
+	</form>
+
+	<hr />
+
+	<div class="results">
+		{#if errorMessage}
+			<div class="text-red-600 mb-4">
+				{errorMessage}
+			</div>
+		{/if}
+
+		<div class="text-gray-700 mb-4">
+			{_('TOTP Code')}:
+			<span class="font-mono">{totpCode}</span>
+		</div>
+
+		<div class="text-gray-700 mb-4">
+			{_('TOTP Counter')}:
+			<span class="font-mono">{totpCounter}</span>
+		</div>
+
+		<div class="text-gray-700 mb-4">
+			{_('TOTP Remaining Time')}:
+			<span class="font-mono">{totpRemaining / 1000} s</span>
+		</div>
+	</div>
+
+</div>
+
+<style lang="scss">
+@reference "tailwindcss/theme";
+
+.form {
+	@apply
+		flex flex-col gap-4
+		;
+
+	.form-cols {
+		@apply grid gap-4;
+	}
+
+	.form-group {
+		@apply flex flex-col justify-start items-start;
+
+		&.form-group-inline {
+			@apply flex-row gap-2;
+		}
+
+		> label {
+			@apply contents;
+		}
+
+		.label {
+			@apply w-full pb-1 text-gray-700;
+		}
+	}
+
+	.form-input {
+		@apply
+			block bg-gray-100
+			w-full p-2 rounded-md
+			flex-1
+			border border-gray-300
+			;
+
+		&.default {
+			@apply text-gray-600
+		}
+
+		&.error {
+			@apply border-red-600 text-red-600;
+		}
+	}
+}
+
+hr {
+	@apply my-6 border-gray-300;
+}
+
+.results {
+	> div {
+		@apply mb-2;
+	}
+
+	code {
+		@apply font-mono;
+	}
+}
+
+.btn {
+	@apply
+		bg-gray-400
+		enabled:hover:bg-gray-500
+		disabled:bg-gray-300
+		px-4
+		py-2
+		text-white
+		font-semibold
+		rounded-md
+		disabled:cursor-not-allowed
+		;
+
+	&.btn-primary {
+		@apply
+			bg-blue-500
+			enabled:hover:bg-blue-600
+			disabled:bg-blue-300
+			;
+	}
+}
+</style>
