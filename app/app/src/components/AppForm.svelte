@@ -449,9 +449,13 @@ function onReset()
 				</div>
 			</div>
 		{:else if errorMessage}
-			<div class="text-red-600 mb-4">
+			<p class="text-red-600 mb-4">
 				{errorMessage}
-			</div>
+			</p>
+		{:else}
+			<p class="text-gray-600 mb-4">
+				{_('Fill the form to generate a TOTP code.')}
+			</p>
 		{/if}
 	</div>
 
