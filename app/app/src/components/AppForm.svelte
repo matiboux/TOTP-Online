@@ -68,6 +68,7 @@ let errorMessage: string | null = null
 
 let totp: OTPAuth.TOTP | null = null
 let totpCode: string = ''
+let totpCodeCopied: boolean = false
 let totpCounter: number = 0
 let totpRemaining: number = 0
 
@@ -165,9 +166,7 @@ function computeTotpUri()
 	if (!totpConfig.secret)
 	{
 		errorMessage = _('TOTP secret is required')
-		totpCode = ''
-		totpCounter = 0
-		totpRemaining = 0
+		resetTotpOutput()
 		return
 	}
 
@@ -194,9 +193,7 @@ function generate(updateConfig: boolean = true)
 	if (!totpConfig.uri)
 	{
 		errorMessage = _('TOTP URI is required')
-		totpCode = ''
-		totpCounter = 0
-		totpRemaining = 0
+		resetTotpOutput()
 		return
 	}
 
@@ -221,18 +218,14 @@ function generate(updateConfig: boolean = true)
 	if (!totpObject)
 	{
 		errorMessage = _('Failed to create TOTP object')
-		totpCode = ''
-		totpCounter = 0
-		totpRemaining = 0
+		resetTotpOutput()
 		return
 	}
 
 	if (!(totpObject instanceof OTPAuth.TOTP))
 	{
 		errorMessage = _('Invalid TOTP object type')
-		totpCode = ''
-		totpCounter = 0
-		totpRemaining = 0
+		resetTotpOutput()
 		return
 	}
 
@@ -250,9 +243,7 @@ function generate(updateConfig: boolean = true)
 
 	// Reset TOTP output
 	errorMessage = null
-	totpCode = ''
-	totpCounter = 0
-	totpRemaining = 0
+	resetTotpOutput()
 
 	// Create the TOTP generation refresh interval
 	clearRefreshTotp()
@@ -286,8 +277,33 @@ function refreshTotp()
 	if (newCounter !== totpCounter)
 	{
 		totpCode = totp.generate()
+		totpCodeCopied = false
 		totpCounter = newCounter
 	}
+}
+
+function onCopy()
+{
+	if (!totpCode)
+	{
+		return
+	}
+
+	const clipboard = window.navigator.clipboard
+
+	if (!clipboard || !clipboard.writeText)
+	{
+		console.warn('Clipboard API not supported')
+	}
+
+	// Copy the TOTP code to the clipboard
+	clipboard.writeText(totpCode)
+		.then(() => {
+			totpCodeCopied = true
+		})
+		.catch((error: Error) => {
+			console.error('Failed to copy TOTP code', error)
+		})
 }
 
 function onSubmit()
@@ -304,19 +320,33 @@ function onSubmit()
 function onReset()
 {
 	// Reset TOTP configuration
+	resetTotpConfig()
+
+	// Reset TOTP output
+	errorMessage = null
+	resetTotpOutput()
+}
+
+function resetTotpConfig()
+{
+	// Reset TOTP configuration to default values
 	totpConfig.uri = defaultTotpConfig.uri
 	totpConfig.algorithm = defaultTotpConfig.algorithm
 	totpConfig.digits = defaultTotpConfig.digits
 	totpConfig.period = defaultTotpConfig.period
 	totpConfig.secret = defaultTotpConfig.secret
-	saveConfig()
 
+	// Save the reset configuration
+	saveConfig()
+}
+
+function resetTotpOutput()
+{
 	// Reset TOTP output
-	errorMessage = null
 	totpCode = ''
+	totpCodeCopied = false
 	totpCounter = 0
 	totpRemaining = 0
-
 }
 </script>
 
@@ -469,9 +499,17 @@ function onReset()
 						<div class="totp-code">
 							{totpCode}
 						</div>
-						<div class="copy-code">
-							<span class="icon-[mdi--clipboard-text] icon-align" />
-						</div>
+						<button
+							class="copy-code"
+							aria-label={_('Copy TOTP code')}
+							on:click|preventDefault={onCopy}
+						>
+							{#if !totpCodeCopied}
+								<span class="icon-[mdi--clipboard-text] icon-align"></span>
+							{:else}
+								<span class="icon-[mdi--check] icon-align"></span>
+							{/if}
+						</button>
 					</div>
 
 					<div class="dev-wrapper">
