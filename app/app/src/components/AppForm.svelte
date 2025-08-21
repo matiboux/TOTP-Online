@@ -70,9 +70,12 @@ let errorMessage: string | null = null
 
 let totp: OTPAuth.TOTP | null = null
 let totpCode: string = ''
-let totpCodeCopied: boolean = false
 let totpCounter: number = 0
 let totpRemaining: number = 0
+
+let totpUriCopied: boolean = false
+let totpSecretCopied: boolean = false
+let totpCodeCopied: boolean = false
 
 // Add interval id for periodic updates
 let totpRefreshId: ReturnType<typeof setTimeout> | undefined = undefined
@@ -111,6 +114,7 @@ function onSubcribeTotpPersistentConfig(newValue: string)
 
 function onChangeTotpUri()
 {
+	totpUriCopied = false
 	saveConfig()
 	generate()
 }
@@ -147,8 +151,51 @@ function onChangeTotpPeriod()
 
 function onChangeTotpSecret()
 {
+	totpSecretCopied = false
 	saveConfig()
 	computeTotpUri()
+}
+
+function onCopyTotpUri()
+{
+	const clipboard = window.navigator.clipboard
+
+	if (!clipboard || !clipboard.writeText)
+	{
+		console.warn('Clipboard API not supported')
+	}
+
+	// Copy the TOTP URI to the clipboard
+	clipboard.writeText(totpConfig.uri)
+		.then(() => {
+			totpUriCopied = true
+			totpSecretCopied = false
+			totpCodeCopied = false
+		})
+		.catch((error: Error) => {
+			console.error('Failed to copy TOTP URI', error)
+		})
+}
+
+function onCopyTotpSecret()
+{
+	const clipboard = window.navigator.clipboard
+
+	if (!clipboard || !clipboard.writeText)
+	{
+		console.warn('Clipboard API not supported')
+	}
+
+	// Copy the TOTP secret to the clipboard
+	clipboard.writeText(totpConfig.secret)
+		.then(() => {
+			totpUriCopied = false
+			totpSecretCopied = true
+			totpCodeCopied = false
+		})
+		.catch((error: Error) => {
+			console.error('Failed to copy TOTP secret', error)
+		})
 }
 
 function onPasteTotpUri()
@@ -241,6 +288,11 @@ function computeTotpUri()
 	catch (error: unknown)
 	{
 		console.error('Failed to create TOTP object:', error)
+		totpObject = null
+	}
+
+	if (!totpObject)
+	{
 		errorMessage = _('Failed to create TOTP object')
 		resetTotpOutput()
 		return
@@ -284,16 +336,10 @@ function generate(updateConfig: boolean = true)
 	{
 		totpObject = OTPAuth.URI.parse(totpConfig.uri)
 	}
-	catch (error)
+	catch (error: unknown)
 	{
-		if (error instanceof TypeError)
-		{
-			totp = null
-		}
-		else
-		{
-			throw error
-		}
+		console.error('Failed to create TOTP object:', error)
+		totpObject = null
 	}
 
 	if (!totpObject)
@@ -366,7 +412,7 @@ function refreshTotp()
 	}
 }
 
-function onCopy()
+function onCopyTotpCode()
 {
 	if (!totpCode)
 	{
@@ -383,6 +429,8 @@ function onCopy()
 	// Copy the TOTP code to the clipboard
 	clipboard.writeText(totpCode)
 		.then(() => {
+			totpUriCopied = false
+			totpSecretCopied = false
 			totpCodeCopied = true
 		})
 		.catch((error: Error) => {
@@ -451,7 +499,7 @@ function resetTotpOutput()
 				</div>
 				<div class="form-input-group">
 					<button
-						class="form-paste-input"
+						class="form-input-button"
 						aria-label={_('Paste TOTP URI')}
 						on:click|preventDefault={onPasteTotpUri}
 					>
@@ -465,6 +513,17 @@ function resetTotpOutput()
 						on:input|preventDefault={onChangeTotpUri}
 						on:change|preventDefault={onChangeTotpUri}
 					/>
+					<button
+						class="form-input-button"
+						aria-label={_('Copy TOTP URI')}
+						on:click|preventDefault={onCopyTotpUri}
+					>
+						{#if !totpUriCopied}
+							<span class="icon-[mdi--clipboard-text] icon-align"></span>
+						{:else}
+							<span class="icon-[mdi--check] icon-align"></span>
+						{/if}
+					</button>
 				</div>
 			</label>
 		</div>
@@ -535,7 +594,7 @@ function resetTotpOutput()
 				</div>
 				<div class="form-input-group">
 					<button
-						class="form-paste-input"
+						class="form-input-button"
 						aria-label={_('Paste TOTP Secret')}
 						on:click|preventDefault={onPasteTotpSecret}
 					>
@@ -549,6 +608,17 @@ function resetTotpOutput()
 						on:input|preventDefault={onChangeTotpSecret}
 						on:change|preventDefault={onChangeTotpSecret}
 					/>
+					<button
+						class="form-input-button"
+						aria-label={_('Copy TOTP Secret')}
+						on:click|preventDefault={onCopyTotpSecret}
+					>
+						{#if !totpSecretCopied}
+							<span class="icon-[mdi--clipboard-text] icon-align"></span>
+						{:else}
+							<span class="icon-[mdi--check] icon-align"></span>
+						{/if}
+					</button>
 				</div>
 			</label>
 		</div>
@@ -607,7 +677,7 @@ function resetTotpOutput()
 						<button
 							class="copy-code"
 							aria-label={_('Copy TOTP code')}
-							on:click|preventDefault={onCopy}
+							on:click|preventDefault={onCopyTotpCode}
 						>
 							{#if !totpCodeCopied}
 								<span class="icon-[mdi--clipboard-text] icon-align"></span>
@@ -687,7 +757,7 @@ function resetTotpOutput()
 		}
 	}
 
-	.form-paste-input {
+	.form-input-button {
 		@apply
 			flex items-center justify-center
 			p-2 text-xl text-gray-500 hover:text-gray-700
