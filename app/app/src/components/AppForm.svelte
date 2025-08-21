@@ -60,6 +60,8 @@ const totpConfig: TotpConfig = {
 	secret: defaultTotpConfig.secret,
 }
 
+let totpEffectiveConfig: TotpConfig | null = null
+
 let lastCalledMethod: 'computeTotpUri' | 'generate' | null = null
 
 const totpPersistentConfig = persistentAtom<string>('totpPersistentConfig', undefined)
@@ -213,11 +215,23 @@ function computeTotpUri()
 		return
 	}
 
-	let totp: OTPAuth.TOTP | null = null
+	if (
+		totpEffectiveConfig &&
+		totpConfig.algorithm === totpEffectiveConfig.algorithm &&
+		totpConfig.digits === totpEffectiveConfig.digits &&
+		totpConfig.period === totpEffectiveConfig.period &&
+		totpConfig.secret === totpEffectiveConfig.secret
+	)
+	{
+		// No TOTP configuration change, nothing to do
+		return
+	}
+
+	let totpObject: OTPAuth.TOTP | null = null
 
 	try
 	{
-		totp = new OTPAuth.TOTP({
+		totpObject = new OTPAuth.TOTP({
 			algorithm: totpConfig.algorithm ?? defaultTotpConfig.algorithm,
 			digits: totpConfig.digits ?? defaultTotpConfig.digits,
 			period: totpConfig.period ?? defaultTotpConfig.period,
@@ -232,9 +246,12 @@ function computeTotpUri()
 		return
 	}
 
+	// Save the effective TOTP configuration
+	totpEffectiveConfig = Object.assign({}, totpConfig)
+
 	// Update the TOTP URI
 	// totpUri.set(totp.toString())
-	totpConfig.uri = totp.toString()
+	totpConfig.uri = totpObject.toString()
 	generate(false)
 }
 
@@ -249,6 +266,15 @@ function generate(updateConfig: boolean = true)
 	{
 		errorMessage = _('TOTP URI is required')
 		resetTotpOutput()
+		return
+	}
+
+	if (
+		totpEffectiveConfig &&
+		totpConfig.uri === totpEffectiveConfig.uri
+	)
+	{
+		// No TOTP configuration change, nothing to do
 		return
 	}
 
@@ -295,6 +321,9 @@ function generate(updateConfig: boolean = true)
 		totpConfig.secret = totp.secret.base32
 		saveConfig()
 	}
+
+	// Save the effective TOTP configuration
+	totpEffectiveConfig = Object.assign({}, totpConfig)
 
 	// Reset TOTP output
 	errorMessage = null
