@@ -82,6 +82,7 @@ onMount(() =>
 
 onDestroy(() =>
 {
+	// Clear the TOTP generation refresh interval
 	clearRefreshTotp()
 })
 
@@ -148,6 +149,48 @@ function onChangeTotpSecret()
 	computeTotpUri()
 }
 
+function onPasteTotpUri()
+{
+	const clipboard = window.navigator.clipboard
+
+	if (!clipboard || !clipboard.readText)
+	{
+		console.warn('Clipboard API not supported')
+	}
+
+	// Read the TOTP URI from the clipboard
+	navigator.clipboard.readText()
+		.then((text) => {
+			totpConfig.uri = text
+			saveConfig()
+			generate()
+		})
+		.catch((error: Error) => {
+			console.error('Failed to paste TOTP URI', error)
+		})
+}
+
+function onPasteTotpSecret()
+{
+	const clipboard = window.navigator.clipboard
+
+	if (!clipboard || !clipboard.readText)
+	{
+		console.warn('Clipboard API not supported')
+	}
+
+	// Read the TOTP secret from the clipboard
+	navigator.clipboard.readText()
+		.then((text) => {
+			totpConfig.secret = text
+			saveConfig()
+			computeTotpUri()
+		})
+		.catch((error: Error) => {
+			console.error('Failed to paste TOTP URI', error)
+		})
+}
+
 function saveConfig()
 {
 	const config: TotpPersistentConfig = {
@@ -170,12 +213,24 @@ function computeTotpUri()
 		return
 	}
 
-	const totp = new OTPAuth.TOTP({
-		algorithm: totpConfig.algorithm ?? defaultTotpConfig.algorithm,
-		digits: totpConfig.digits ?? defaultTotpConfig.digits,
-		period: totpConfig.period ?? defaultTotpConfig.period,
-		secret: totpConfig.secret,
-	})
+	let totp: OTPAuth.TOTP | null = null
+
+	try
+	{
+		totp = new OTPAuth.TOTP({
+			algorithm: totpConfig.algorithm ?? defaultTotpConfig.algorithm,
+			digits: totpConfig.digits ?? defaultTotpConfig.digits,
+			period: totpConfig.period ?? defaultTotpConfig.period,
+			secret: totpConfig.secret,
+		})
+	}
+	catch (error: unknown)
+	{
+		console.error('Failed to create TOTP object:', error)
+		errorMessage = _('Failed to create TOTP object')
+		resetTotpOutput()
+		return
+	}
 
 	// Update the TOTP URI
 	// totpUri.set(totp.toString())
@@ -347,6 +402,9 @@ function resetTotpOutput()
 	totpCodeCopied = false
 	totpCounter = 0
 	totpRemaining = 0
+
+	// Clear the TOTP generation refresh interval
+	clearRefreshTotp()
 }
 </script>
 
@@ -362,14 +420,27 @@ function resetTotpOutput()
 				<div class="label">
 					{_('TOTP URI')}
 				</div>
-				<input
-					type="text"
-					class="form-input"
-					placeholder="otpauth://totp/..."
-					bind:value={totpConfig.uri}
-					on:input|preventDefault={onChangeTotpUri}
-					on:change|preventDefault={onChangeTotpUri}
-				/>
+				<div class="form-input-group">
+					<button
+						class="form-paste-input"
+						aria-label={_('Paste TOTP URI')}
+						on:click|preventDefault={onPasteTotpUri}
+					>
+						{#if !totpCodeCopied}
+							<span class="icon-[mdi--clipboard-arrow-right] icon-align"></span>
+						{:else}
+							<span class="icon-[mdi--check] icon-align"></span>
+						{/if}
+					</button>
+					<input
+						type="text"
+						class="form-input"
+						placeholder="otpauth://totp/..."
+						bind:value={totpConfig.uri}
+						on:input|preventDefault={onChangeTotpUri}
+						on:change|preventDefault={onChangeTotpUri}
+					/>
+				</div>
 			</label>
 		</div>
 
@@ -437,14 +508,27 @@ function resetTotpOutput()
 				<div class="label">
 					{_('TOTP Secret')}
 				</div>
-				<input
-					type="text"
-					class="form-input"
-					placeholder="Base32 encoded secret"
-					bind:value={totpConfig.secret}
-					on:input|preventDefault={onChangeTotpSecret}
-					on:change|preventDefault={onChangeTotpSecret}
-				/>
+				<div class="form-input-group">
+					<button
+						class="form-paste-input"
+						aria-label={_('Paste TOTP Secret')}
+						on:click|preventDefault={onPasteTotpSecret}
+					>
+						{#if !totpCodeCopied}
+							<span class="icon-[mdi--clipboard-arrow-right] icon-align"></span>
+						{:else}
+							<span class="icon-[mdi--check] icon-align"></span>
+						{/if}
+					</button>
+					<input
+						type="text"
+						class="form-input"
+						placeholder="Base32 encoded secret"
+						bind:value={totpConfig.secret}
+						on:input|preventDefault={onChangeTotpSecret}
+						on:change|preventDefault={onChangeTotpSecret}
+					/>
+				</div>
 			</label>
 		</div>
 
@@ -579,6 +663,46 @@ function resetTotpOutput()
 
 		&.error {
 			@apply border-red-600 text-red-600;
+		}
+	}
+
+	.form-paste-input {
+		@apply
+			flex items-center justify-center
+			p-2 text-xl text-gray-500 hover:text-gray-700
+			cursor-pointer
+			transition-colors duration-200
+			bg-gray-200
+			border border-gray-300
+			rounded-md
+			;
+
+		// .icon-align {
+		// 	@apply size-6;
+		// }
+	}
+
+	.form-input-group {
+		@apply
+			flex items-stretch justify-center
+			w-full rounded-md
+			;
+
+		> * {
+			@apply shrink-0;
+
+			&:not(:first-child) {
+				@apply rounded-l-none;
+			}
+
+			&:not(:last-child) {
+				@apply border-r-0;
+				@apply rounded-r-none;
+			}
+		}
+
+		> .form-input {
+			@apply grow shrink;
 		}
 	}
 }
