@@ -1,4 +1,6 @@
 ---
+import { site, githubRepositoryUrl } from '~/site'
+
 import { i18nFactory } from '~/i18n'
 const _ = i18nFactory(Astro.currentLocale as any)
 
@@ -7,10 +9,6 @@ export interface Props
 	class?: string
 	style?: string
 }
-
-const githubRepositoryUrl = process.env.GITHUB_REPOSITORY_URL || null as string | null
-const githubSha = process.env.GITHUB_SHA || null as string | null
-const buildVersion = githubSha ? githubSha.slice(0, 7) : 'dev'
 ---
 
 <footer
@@ -26,8 +24,8 @@ const buildVersion = githubSha ? githubSha.slice(0, 7) : 'dev'
 		<p>
 			<span class="icon-[mdi--github] icon-align"></span>
 			{_('See the source code on')}
-			<a href={githubRepositoryUrl ?? '#'}>GitHub</a>
-			<small>(v. {buildVersion})</small>
+			<a href={githubRepositoryUrl}>GitHub</a>
+			<small>(v. {site.version})</small>
 		</p>
 		<p>
 			<span class="icon-[mdi--fire] icon-align"></span>
