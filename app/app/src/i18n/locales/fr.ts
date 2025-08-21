@@ -5,6 +5,26 @@ import type { DefaultLocaleKeys } from './types.d.ts'
 const locale = {
 	// Index
 	'Online conversion tool for environment files.': 'Outil de conversion en ligne pour les fichiers d\'environnement.',
+	// AppForm
+	'Convert': 'Convertir',
+	'Copy TOTP code': 'Copier le code TOTP',
+	'Copy TOTP Secret': 'Copier le secret TOTP',
+	'Copy TOTP URI': 'Copier l\'URI TOTP',
+	'Failed to create TOTP object': 'Échec de la création de l\'objet TOTP',
+	'Fill the form to generate a TOTP code.': 'Remplissez le formulaire pour générer un code TOTP.',
+	'Invalid TOTP object type': 'Type d\'objet TOTP invalide',
+	'Paste TOTP Secret': 'Coller le secret TOTP',
+	'Paste TOTP URI': 'Coller l\'URI TOTP',
+	'Reset': 'Réinitialiser',
+	'TOTP Algorithm': 'Algorithme TOTP',
+	'TOTP Counter': 'Compteur TOTP',
+	'TOTP Digits': 'Chiffres TOTP',
+	'TOTP Period (seconds)': 'Période TOTP (secondes)',
+	'TOTP Remaining Time': 'Temps restant TOTP',
+	'TOTP secret is required': 'Le secret TOTP est requis',
+	'TOTP Secret': 'Secret TOTP',
+	'TOTP URI is required': 'L\'URI TOTP est requise',
+	'TOTP URI': 'URI TOTP',
 	// Footer
 	'Open source project': 'Projet open source',
 	'See the source code on': 'Voir le code source sur',
