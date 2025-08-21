@@ -156,90 +156,6 @@ function onChangeTotpSecret()
 	computeTotpUri()
 }
 
-function onCopyTotpUri()
-{
-	const clipboard = window.navigator.clipboard
-
-	if (!clipboard || !clipboard.writeText)
-	{
-		console.warn('Clipboard API not supported')
-	}
-
-	// Copy the TOTP URI to the clipboard
-	clipboard.writeText(totpConfig.uri)
-		.then(() => {
-			totpUriCopied = true
-			totpSecretCopied = false
-			totpCodeCopied = false
-		})
-		.catch((error: Error) => {
-			console.error('Failed to copy TOTP URI', error)
-		})
-}
-
-function onCopyTotpSecret()
-{
-	const clipboard = window.navigator.clipboard
-
-	if (!clipboard || !clipboard.writeText)
-	{
-		console.warn('Clipboard API not supported')
-	}
-
-	// Copy the TOTP secret to the clipboard
-	clipboard.writeText(totpConfig.secret)
-		.then(() => {
-			totpUriCopied = false
-			totpSecretCopied = true
-			totpCodeCopied = false
-		})
-		.catch((error: Error) => {
-			console.error('Failed to copy TOTP secret', error)
-		})
-}
-
-function onPasteTotpUri()
-{
-	const clipboard = window.navigator.clipboard
-
-	if (!clipboard || !clipboard.readText)
-	{
-		console.warn('Clipboard API not supported')
-	}
-
-	// Read the TOTP URI from the clipboard
-	navigator.clipboard.readText()
-		.then((text) => {
-			totpConfig.uri = text
-			saveConfig()
-			generate()
-		})
-		.catch((error: Error) => {
-			console.error('Failed to paste TOTP URI', error)
-		})
-}
-
-function onPasteTotpSecret()
-{
-	const clipboard = window.navigator.clipboard
-
-	if (!clipboard || !clipboard.readText)
-	{
-		console.warn('Clipboard API not supported')
-	}
-
-	// Read the TOTP secret from the clipboard
-	navigator.clipboard.readText()
-		.then((text) => {
-			totpConfig.secret = text
-			saveConfig()
-			computeTotpUri()
-		})
-		.catch((error: Error) => {
-			console.error('Failed to paste TOTP URI', error)
-		})
-}
-
 function saveConfig()
 {
 	const config: TotpPersistentConfig = {
@@ -412,6 +328,48 @@ function refreshTotp()
 	}
 }
 
+function onCopyTotpUri()
+{
+	const clipboard = window.navigator.clipboard
+
+	if (!clipboard || !clipboard.writeText)
+	{
+		console.warn('Clipboard API not supported')
+	}
+
+	// Copy the TOTP URI to the clipboard
+	clipboard.writeText(totpConfig.uri)
+		.then(() => {
+			totpUriCopied = true
+			totpSecretCopied = false
+			totpCodeCopied = false
+		})
+		.catch((error: Error) => {
+			console.error('Failed to copy TOTP URI', error)
+		})
+}
+
+function onCopyTotpSecret()
+{
+	const clipboard = window.navigator.clipboard
+
+	if (!clipboard || !clipboard.writeText)
+	{
+		console.warn('Clipboard API not supported')
+	}
+
+	// Copy the TOTP secret to the clipboard
+	clipboard.writeText(totpConfig.secret)
+		.then(() => {
+			totpUriCopied = false
+			totpSecretCopied = true
+			totpCodeCopied = false
+		})
+		.catch((error: Error) => {
+			console.error('Failed to copy TOTP secret', error)
+		})
+}
+
 function onCopyTotpCode()
 {
 	if (!totpCode)
@@ -435,6 +393,48 @@ function onCopyTotpCode()
 		})
 		.catch((error: Error) => {
 			console.error('Failed to copy TOTP code', error)
+		})
+}
+
+function onPasteTotpUri()
+{
+	const clipboard = window.navigator.clipboard
+
+	if (!clipboard || !clipboard.readText)
+	{
+		console.warn('Clipboard API not supported')
+	}
+
+	// Read the TOTP URI from the clipboard
+	navigator.clipboard.readText()
+		.then((text) => {
+			totpConfig.uri = text
+			saveConfig()
+			generate()
+		})
+		.catch((error: Error) => {
+			console.error('Failed to paste TOTP URI', error)
+		})
+}
+
+function onPasteTotpSecret()
+{
+	const clipboard = window.navigator.clipboard
+
+	if (!clipboard || !clipboard.readText)
+	{
+		console.warn('Clipboard API not supported')
+	}
+
+	// Read the TOTP secret from the clipboard
+	navigator.clipboard.readText()
+		.then((text) => {
+			totpConfig.secret = text
+			saveConfig()
+			computeTotpUri()
+		})
+		.catch((error: Error) => {
+			console.error('Failed to paste TOTP URI', error)
 		})
 }
 
