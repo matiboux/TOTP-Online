@@ -426,11 +426,7 @@ function resetTotpOutput()
 						aria-label={_('Paste TOTP URI')}
 						on:click|preventDefault={onPasteTotpUri}
 					>
-						{#if !totpCodeCopied}
-							<span class="icon-[mdi--clipboard-arrow-right] icon-align"></span>
-						{:else}
-							<span class="icon-[mdi--check] icon-align"></span>
-						{/if}
+						<span class="icon-[mdi--clipboard-arrow-right] icon-align"></span>
 					</button>
 					<input
 						type="text"
@@ -514,11 +510,7 @@ function resetTotpOutput()
 						aria-label={_('Paste TOTP Secret')}
 						on:click|preventDefault={onPasteTotpSecret}
 					>
-						{#if !totpCodeCopied}
-							<span class="icon-[mdi--clipboard-arrow-right] icon-align"></span>
-						{:else}
-							<span class="icon-[mdi--check] icon-align"></span>
-						{/if}
+						<span class="icon-[mdi--clipboard-arrow-right] icon-align"></span>
 					</button>
 					<input
 						type="text"
