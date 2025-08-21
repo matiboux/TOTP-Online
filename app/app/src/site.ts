@@ -26,7 +26,7 @@ export const site: Site = {
 	lang: 'en',
 	title: 'TOTP Online',
 	description: 'Online TOTP codes generator.',
-	version: (GITHUB_SHA ? GITHUB_SHA.splice(0, 7) : null) || VERSION_TAG || 'dev',
+	version: (GITHUB_SHA ? GITHUB_SHA.slice(0, 7) : null) || VERSION_TAG || 'dev',
 	author: 'Matiboux',
 	themeColor: '#ffffff',
 	viewportScale: 1,
